@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T11:44:18.966Z",
+  "updatedAt": "2026-07-11T11:51:31.451Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -179,6 +179,52 @@
       ],
       "id": "52969679-d26a-48a6-a468-8ef61d4e8590",
       "name": "Extract LLM Analysis"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const now = new Date();\n\nconst date = new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Europe/Copenhagen',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n}).format(now);\n\nreturn {\n  json: {\n    fileName: `analysis-${date}.json`,\n    content: JSON.stringify(\n      {\n        generatedAt: $json.generatedAt,\n        stocks: $json.stocks,\n        analysis: $json.analysis,\n      },\n      null,\n      2\n    ),\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        208
+      ],
+      "id": "8395d31f-d98b-4d10-b380-2b546d42c109",
+      "name": "Prepare Analysis File"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "content",
+        "options": {
+          "fileName": "={{ $json.fileName }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        384
+      ],
+      "id": "398c027e-e795-4f0c-8db4-c937f904350e",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        384
+      ],
+      "id": "b876b1ca-d789-4920-a916-440121172955",
+      "name": "Read/Write Files from Disk1"
     }
   ],
   "connections": {
@@ -290,6 +336,39 @@
           }
         ]
       ]
+    },
+    "Extract LLM Analysis": {
+      "main": [
+        [
+          {
+            "node": "Prepare Analysis File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Analysis File": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -301,9 +380,9 @@
   "meta": null,
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "bebab45f-5c91-4780-8e47-dc60eac5c6c9",
+  "versionId": "195c22c7-c956-4202-8055-c8711d1d3790",
   "activeVersionId": null,
-  "versionCounter": 62,
+  "versionCounter": 75,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
