@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T13:35:45.905Z",
+  "updatedAt": "2026-07-11T13:56:28.032Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -43,7 +43,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const stocks = [\n  { symbol: \"SAP.DE\", buyPrice: 250 },\n  { symbol: \"NKT.CO\", buyPrice: 680 },\n  { symbol: \"ASML.AS\", buyPrice: 700 }\n];\n\nreturn stocks.map(stock => ({\n  json: stock\n}));"
+        "jsCode": "const stocks = [\n  { symbol: \"ABB.ST\", buyPrice: 909 },   //ABB\n  { symbol: \"SU.PA\", buyPrice: 259 },     // Schneider Electric\n  { symbol: \"ASML.AS\", buyPrice: 1222 },   // ASML\n  { symbol: \"IFX.DE\", buyPrice: 55 },    // Infineon\n  { symbol: \"NKT.CO\", buyPrice: 947 },    // NKT\n  { symbol: \"SAP.DE\", buyPrice: 140 },    // SAP\n  { symbol: \"UCG.MI\", buyPrice: 73 },    // UniCredit\n  { symbol: \"KOG.OL\", buyPrice: 293 },    // Kongsberg Gruppen\n  { symbol: \"CARL-B.CO\", buyPrice: 901 }, // Carlsberg\n  { symbol: \"DSV.CO\", buyPrice: 1634 },    // DSV\n  { symbol: \"MTRS.ST\", buyPrice: 185 },   // Munters\n  { symbol: \"YCA.L\", buyPrice: 6 },     // Yellow Cake\n  { symbol: \"ALFA.ST\", buyPrice: 468 },   // Alfa Laval\n  { symbol: \"KMAR.OL\", buyPrice: 60 },   // Kongsberg Maritime\n];\n\nreturn stocks.map(stock => ({\n  json: stock\n}));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -114,21 +114,6 @@
     },
     {
       "parameters": {
-        "operation": "write",
-        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1.1,
-      "position": [
-        1040,
-        208
-      ],
-      "id": "85d781ee-e35e-44ef-bef4-c30160be1a59",
-      "name": "Read/Write Files from Disk"
-    },
-    {
-      "parameters": {
         "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\nDo not invent news, financial results, forecasts, or price targets.\n\nFor each stock return:\n- signal: positive, neutral, or negative\n- short reasoning\n- primary risk\n- action: monitor, investigate, or stop-loss warning\n\nStock data:\n${JSON.stringify(stocks, null, 2)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
       },
       "type": "n8n-nodes-base.code",
@@ -187,21 +172,6 @@
     },
     {
       "parameters": {
-        "operation": "write",
-        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.readWriteFile",
-      "typeVersion": 1.1,
-      "position": [
-        832,
-        592
-      ],
-      "id": "b876b1ca-d789-4920-a916-440121172955",
-      "name": "Read/Write Files from Disk1"
-    },
-    {
-      "parameters": {
         "rule": {
           "interval": [
             {
@@ -231,14 +201,14 @@
     {
       "parameters": {
         "chatId": "8895739149",
-        "text": "={{ $json.analysis }}",
+        "text": "={{ $json.telegramMessage }}",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1232,
-        416
+        1440,
+        208
       ],
       "id": "661a1f6d-2f26-4ee4-875a-d9ec956c93d1",
       "name": "Send a text message",
@@ -275,6 +245,49 @@
           "name": "LiteLLM Local"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const date = new Intl.DateTimeFormat('en-DK', {\n  timeZone: 'Europe/Copenhagen',\n  dateStyle: 'long',\n}).format(new Date());\n\nreturn {\n  json: {\n    ...$json,\n    telegramMessage:\n`Portfolio report – ${date}\n\n${$json.analysis}`\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        304
+      ],
+      "id": "72c64526-8811-4984-8331-e71628a2fae3",
+      "name": "Format Telegram Message"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        208
+      ],
+      "id": "85d781ee-e35e-44ef-bef4-c30160be1a59",
+      "name": "Write log file"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        592
+      ],
+      "id": "b876b1ca-d789-4920-a916-440121172955",
+      "name": "Write result"
     }
   ],
   "connections": {
@@ -353,16 +366,11 @@
       "main": [
         [
           {
-            "node": "Read/Write Files from Disk",
+            "node": "Write log file",
             "type": "main",
             "index": 0
           }
         ]
-      ]
-    },
-    "Read/Write Files from Disk": {
-      "main": [
-        []
       ]
     },
     "Prepare LLM Input": {
@@ -380,7 +388,12 @@
       "main": [
         [
           {
-            "node": "Send a text message",
+            "node": "Prepare Analysis File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Telegram Message",
             "type": "main",
             "index": 0
           }
@@ -402,7 +415,7 @@
       "main": [
         [
           {
-            "node": "Read/Write Files from Disk1",
+            "node": "Write result",
             "type": "main",
             "index": 0
           }
@@ -422,13 +435,7 @@
     },
     "Send a text message": {
       "main": [
-        [
-          {
-            "node": "Prepare Analysis File",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "LLM request": {
@@ -440,6 +447,22 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Format Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write log file": {
+      "main": [
+        []
       ]
     }
   },
@@ -463,9 +486,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "7c5453d9-c634-4c90-aec8-7d1fc358c629",
+  "versionId": "a9a00335-8504-4468-b94d-2325a5b0c0f4",
   "activeVersionId": "b5dec410-c9b0-4c13-b4ff-558dc8f0b971",
-  "versionCounter": 92,
+  "versionCounter": 121,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
