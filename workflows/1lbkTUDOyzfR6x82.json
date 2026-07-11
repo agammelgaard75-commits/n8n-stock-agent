@@ -1,0 +1,146 @@
+{
+  "updatedAt": "2026-07-11T09:39:41.937Z",
+  "createdAt": "2026-07-11T09:32:31.805Z",
+  "id": "1lbkTUDOyzfR6x82",
+  "name": "stocks",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "8e52e259-e8a1-4f85-bd82-81749dff1de4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://query1.finance.yahoo.com/v8/finance/chart/' + $json.symbol + '?range=3mo&interval=1d' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "665157d2-7daa-4a82-97bc-3bab5c35c46a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stocks = [\n  { symbol: \"SAP.DE\", buyPrice: 250 },\n  { symbol: \"NKT.CO\", buyPrice: 680 },\n  { symbol: \"ASML.AS\", buyPrice: 700 }\n];\n\nreturn stocks.map(stock => ({\n  json: stock\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "d5b7977d-7fd2-4779-bf94-f028d02d55af",
+      "name": "Stock List"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const stock = $('Stock List').item.json;\nconst result = $json.chart.result[0];\n\nconst timestamps = result.timestamp;\nconst quote = result.indicators.quote[0];\nconst closes = quote.close;\nconst volumes = quote.volume;\n\nconst valid = timestamps\n  .map((time, i) => ({\n    time,\n    close: closes[i],\n    volume: volumes[i],\n  }))\n  .filter(row => row.close != null && row.volume != null);\n\nconst today = valid.at(-1);\nconst yesterday = valid.at(-2);\n\nconst previousVolumes = valid.slice(0, -1).map(row => row.volume);\nconst averageVolume3m =\n  previousVolumes.reduce((sum, value) => sum + value, 0) /\n  previousVolumes.length;\n\nconst dailyChangePercent =\n  ((today.close - yesterday.close) / yesterday.close) * 100;\n\nconst volumeDeviationPercent =\n  ((today.volume - averageVolume3m) / averageVolume3m) * 100;\n\nreturn {\n  json: {\n    symbol: stock.symbol,\n    buyPrice: stock.buyPrice,\n    currentPrice: today.close,\n    dailyChangePercent,\n    dailyVolume: today.volume,\n    averageVolume3m,\n    volumeDeviationPercent,\n    highVolumeDown:\n      volumeDeviationPercent > 10 && dailyChangePercent < 0,\n    stopLossTriggered:\n      today.close <= stock.buyPrice * 0.93,\n    closes: valid.map(row => row.close),\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "95120672-8bff-4fc5-a7bb-2a77933181e3",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Stock List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock List": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "68a8506f-fd8b-4c09-ac11-d75391966ffd",
+  "activeVersionId": null,
+  "versionCounter": 21,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-07-11T09:32:31.811Z",
+      "createdAt": "2026-07-11T09:32:31.811Z",
+      "role": "workflow:owner",
+      "workflowId": "1lbkTUDOyzfR6x82",
+      "projectId": "GQNbng0QqhX0CllC",
+      "project": {
+        "updatedAt": "2026-07-11T09:30:14.997Z",
+        "createdAt": "2026-07-08T07:31:19.792Z",
+        "id": "GQNbng0QqhX0CllC",
+        "name": "André Gammelgaard <oldfarm@oldfarm.dk>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "421bda88-bb9b-4a51-9076-06e01c515d92"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
