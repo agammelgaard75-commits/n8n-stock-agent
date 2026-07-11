@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T09:39:41.937Z",
+  "updatedAt": "2026-07-11T11:02:38.646Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -66,7 +66,79 @@
         0
       ],
       "id": "95120672-8bff-4fc5-a7bb-2a77933181e3",
-      "name": "Code in JavaScript"
+      "name": "Analysis"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const closes = $json.closes.filter(Number.isFinite);\n\nif (closes.length < 35) {\n  throw new Error(`Not enough price data for MACD: ${closes.length} values`);\n}\n\nfunction ema(values, period) {\n  const multiplier = 2 / (period + 1);\n  const result = [values[0]];\n\n  for (let i = 1; i < values.length; i++) {\n    result.push(\n      values[i] * multiplier +\n      result[i - 1] * (1 - multiplier)\n    );\n  }\n\n  return result;\n}\n\nconst ema12 = ema(closes, 12);\nconst ema26 = ema(closes, 26);\n\nconst macdSeries = closes.map(\n  (_, index) => ema12[index] - ema26[index]\n);\n\nconst signalSeries = ema(macdSeries, 9);\n\nconst lastIndex = closes.length - 1;\nconst previousIndex = lastIndex - 1;\n\nconst macd = macdSeries[lastIndex];\nconst signal = signalSeries[lastIndex];\nconst histogram = macd - signal;\n\nconst previousMacd = macdSeries[previousIndex];\nconst previousSignal = signalSeries[previousIndex];\nconst previousHistogram = previousMacd - previousSignal;\n\nlet crossover = \"none\";\n\nif (previousMacd <= previousSignal && macd > signal) {\n  crossover = \"bullish\";\n}\n\nif (previousMacd >= previousSignal && macd < signal) {\n  crossover = \"bearish\";\n}\n\nreturn {\n  json: {\n    ...$json,\n\n    macd: Number(macd.toFixed(4)),\n    macdSignal: Number(signal.toFixed(4)),\n    macdHistogram: Number(histogram.toFixed(4)),\n\n    macdState: macd > signal ? \"bullish\" : \"bearish\",\n    macdCrossover: crossover,\n    macdMomentumIncreasing: histogram > previousHistogram,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "fdd39a54-47e2-4656-a016-386711d50c26",
+      "name": "Calculate MACD"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stocks = $input.all().map(item => {\n  // Do not save the full three-month price array\n  const { closes, ...result } = item.json;\n  return result;\n});\n\nconst now = new Date();\n\nconst date = now.toLocaleDateString('en-CA', {\n  timeZone: 'Europe/Copenhagen',\n});\n\nreturn [\n  {\n    json: {\n      fileName: `portfolio-${date}.json`,\n      content: JSON.stringify(\n        {\n          generatedAt: now.toISOString(),\n          date,\n          stocks,\n        },\n        null,\n        2\n      ),\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "d179567c-d189-49fb-8126-ce5ae97e373c",
+      "name": "Prepare Daily Log"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "content",
+        "options": {
+          "fileName": "={{ $json.fileName }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "c343c516-211b-4a1a-a6e7-8749291ae192",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ '/files/logs/' + $binary.data.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1456,
+        0
+      ],
+      "id": "85d781ee-e35e-44ef-bef4-c30160be1a59",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\nDo not invent news, financial results, forecasts, or price targets.\n\nFor each stock return:\n- signal: positive, neutral, or negative\n- short reasoning\n- primary risk\n- action: monitor, investigate, or stop-loss warning\n\nStock data:\n${JSON.stringify(stocks, null, 2)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        208
+      ],
+      "id": "5add9903-b08b-4d4e-849b-98ea29404551",
+      "name": "Prepare LLM Input"
     }
   ],
   "connections": {
@@ -96,11 +168,65 @@
       "main": [
         [
           {
-            "node": "Code in JavaScript",
+            "node": "Analysis",
             "type": "main",
             "index": 0
           }
         ]
+      ]
+    },
+    "Analysis": {
+      "main": [
+        [
+          {
+            "node": "Calculate MACD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate MACD": {
+      "main": [
+        [
+          {
+            "node": "Prepare Daily Log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare LLM Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Daily Log": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        []
       ]
     }
   },
@@ -113,9 +239,9 @@
   "meta": null,
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "68a8506f-fd8b-4c09-ac11-d75391966ffd",
+  "versionId": "221917a8-63f3-47ac-a26f-852b57b8674e",
   "activeVersionId": null,
-  "versionCounter": 21,
+  "versionCounter": 46,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
