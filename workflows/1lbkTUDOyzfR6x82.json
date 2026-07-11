@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T13:58:56.090Z",
+  "updatedAt": "2026-07-11T14:05:19.006Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -235,7 +235,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    model: \"gemma4\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    temperature: 0.2,\n    max_tokens: 1200\n  }\n}}",
+        "jsonBody": "={{\n  {\n    model: \"gemma4\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    temperature: 0.2,\n    max_tokens: 4096\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -493,9 +493,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "cad3b0f5-e0de-468e-8ae1-c6468bcdf2c2",
-  "activeVersionId": "b5dec410-c9b0-4c13-b4ff-558dc8f0b971",
-  "versionCounter": 124,
+  "versionId": "a855b4c6-51b4-40dc-8226-203cc7d62ebb",
+  "activeVersionId": "a855b4c6-51b4-40dc-8226-203cc7d62ebb",
+  "versionCounter": 126,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -520,7 +520,7 @@
     }
   ],
   "versionMetadata": {
-    "name": null,
-    "description": null
+    "name": "Version a855b4c6",
+    "description": ""
   }
 }
