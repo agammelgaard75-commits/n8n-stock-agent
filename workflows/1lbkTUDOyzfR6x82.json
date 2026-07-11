@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T14:05:19.006Z",
+  "updatedAt": "2026-07-11T21:41:59.856Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'https://query1.finance.yahoo.com/v8/finance/chart/' + $json.symbol + '?range=3mo&interval=1d' }}",
+        "url": "={{ 'https://query1.finance.yahoo.com/v8/finance/chart/' + $json.symbol + '?range=6mo&interval=1d' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -30,14 +30,7 @@
             }
           ]
         },
-        "options": {
-          "batching": {
-            "batch": {
-              "batchSize": 1,
-              "batchInterval": 1500
-            }
-          }
-        }
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -64,7 +57,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const stock = $('Stock List').item.json;\nconst result = $json.chart.result[0];\n\nconst timestamps = result.timestamp;\nconst quote = result.indicators.quote[0];\nconst closes = quote.close;\nconst volumes = quote.volume;\n\nconst valid = timestamps\n  .map((time, i) => ({\n    time,\n    close: closes[i],\n    volume: volumes[i],\n  }))\n  .filter(row => row.close != null && row.volume != null);\n\nconst today = valid.at(-1);\nconst yesterday = valid.at(-2);\n\nconst previousVolumes = valid.slice(0, -1).map(row => row.volume);\nconst averageVolume3m =\n  previousVolumes.reduce((sum, value) => sum + value, 0) /\n  previousVolumes.length;\n\nconst dailyChangePercent =\n  ((today.close - yesterday.close) / yesterday.close) * 100;\n\nconst volumeDeviationPercent =\n  ((today.volume - averageVolume3m) / averageVolume3m) * 100;\n\nreturn {\n  json: {\n    symbol: stock.symbol,\n    buyPrice: stock.buyPrice,\n    currentPrice: today.close,\n    dailyChangePercent,\n    dailyVolume: today.volume,\n    averageVolume3m,\n    volumeDeviationPercent,\n    highVolumeDown:\n      volumeDeviationPercent > 10 && dailyChangePercent < 0,\n    stopLossTriggered:\n      today.close <= stock.buyPrice * 0.93,\n    closes: valid.map(row => row.close),\n  },\n};"
+        "jsCode": "const result = $json.chart?.result?.[0];\n\nif (!result) {\n  throw new Error('Yahoo returned no chart result');\n}\n\nconst meta = result.meta ?? {};\nconst yahooSymbol = meta.symbol;\n\nif (!yahooSymbol) {\n  throw new Error('Yahoo response has no symbol');\n}\n\n// Match the Yahoo response to the correct portfolio entry.\n// This avoids n8n item-linking mixing prices between tickers.\nconst stocks = $('Stock List')\n  .all()\n  .map(item => item.json);\n\nconst stock = stocks.find(item =>\n  String(item.symbol).trim().toUpperCase() ===\n  String(yahooSymbol).trim().toUpperCase()\n);\n\nif (!stock) {\n  throw new Error(\n    `Could not find ${yahooSymbol} in Stock List`\n  );\n}\n\nconst timestamps = result.timestamp ?? [];\nconst quote = result.indicators?.quote?.[0] ?? {};\nconst closes = quote.close ?? [];\nconst volumes = quote.volume ?? [];\n\nif (\n  timestamps.length === 0 ||\n  closes.length === 0 ||\n  volumes.length === 0\n) {\n  throw new Error(\n    `Yahoo returned incomplete data for ${yahooSymbol}`\n  );\n}\n\n// Build valid historical rows.\nconst rows = timestamps\n  .map((time, index) => ({\n    time,\n    close: closes[index],\n    volume: volumes[index],\n  }))\n  .filter(row =>\n    Number.isFinite(row.time) &&\n    Number.isFinite(row.close) &&\n    Number.isFinite(row.volume)\n  )\n  .sort((a, b) => a.time - b.time);\n\n// Remove duplicate timestamps.\n// If duplicates exist, keep the row with the highest volume,\n// which is normally the most complete candle.\nconst rowsByTimestamp = new Map();\n\nfor (const row of rows) {\n  const existing = rowsByTimestamp.get(row.time);\n\n  if (!existing || row.volume >= existing.volume) {\n    rowsByTimestamp.set(row.time, row);\n  }\n}\n\nconst valid = [...rowsByTimestamp.values()]\n  .sort((a, b) => a.time - b.time);\n\nif (valid.length < 2) {\n  throw new Error(\n    `Not enough valid price rows for ${yahooSymbol}`\n  );\n}\n\nconst today = valid.at(-1);\nconst yesterday = valid.at(-2);\n\nconst currentPrice = today.close;\nconst previousClose = yesterday.close;\n\n// Use approximately three months of previous trading sessions.\n// 63 trading days is roughly three calendar months.\nconst previousVolumeRows = valid.slice(-64, -1);\n\nif (previousVolumeRows.length === 0) {\n  throw new Error(\n    `Not enough volume history for ${yahooSymbol}`\n  );\n}\n\nconst previousVolumes = previousVolumeRows.map(\n  row => row.volume\n);\n\nconst averageVolume3m =\n  previousVolumes.reduce(\n    (sum, value) => sum + value,\n    0\n  ) / previousVolumes.length;\n\nconst dailyChangePercent =\n  ((currentPrice - previousClose) / previousClose) * 100;\n\nconst volumeDeviationPercent =\n  averageVolume3m > 0\n    ? ((today.volume - averageVolume3m) /\n        averageVolume3m) *\n      100\n    : 0;\n\nconst buyPrice = Number(stock.buyPrice);\n\nconst stopLossTriggered =\n  Number.isFinite(buyPrice) &&\n  currentPrice <= buyPrice * 0.93;\n\nconst unrealizedReturnPercent =\n  Number.isFinite(buyPrice)\n    ? ((currentPrice - buyPrice) / buyPrice) * 100\n    : null;\n\nconst priceVsBuy =\n  !Number.isFinite(buyPrice)\n    ? \"unknown\"\n    : currentPrice > buyPrice\n      ? \"above\"\n      : currentPrice < buyPrice\n        ? \"below\"\n        : \"equal\";\n\nconst stopLossPrice =\n  Number.isFinite(buyPrice)\n    ? buyPrice * 0.93\n    : null;\n\nreturn {\n  json: {\n    symbol: yahooSymbol,\n    currency: meta.currency ?? null,\n\n    buyPrice: Number.isFinite(buyPrice)\n      ? buyPrice\n      : null,\n\n    currentPrice,\n    previousClose,\n\n    latestTimestamp: today.time,\n    latestDate: new Date(\n      today.time * 1000\n    ).toISOString(),\n\n    dailyChangePercent,\n    dailyVolume: today.volume,\n\n    averageVolume3m,\n    volumeDeviationPercent,\n    priceVsBuy,\n    unrealizedReturnPercent,\n    stopLossPrice,\n    stopLossTriggered,\n\n    highVolumeDown:\n      volumeDeviationPercent > 10 &&\n      dailyChangePercent < 0,\n\n    stopLossTriggered,\n\n    historyRows: valid.length,\n\n    // Used by the following MACD node.\n    closes: valid.map(row => row.close),\n  },\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -121,7 +114,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\nDo not invent news, financial results, forecasts, or price targets.\n\nFor each stock return:\n- signal: positive, neutral, or negative\n- short reasoning\n- primary risk\n- action: monitor, investigate, or stop-loss warning\n\nStock data:\n${JSON.stringify(stocks, null, 2)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
+        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    priceVsBuy: s.previousClose,\n    unrealizedReturnPercent: s.unrealizedReturnPercent,\n    stopLossPrice: s.stopLossPrice,\n    stopLossTriggered: s.stopLossTriggered,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\nDo not invent news, financial results, forecasts, or price targets.\n\nFor each stock return:\n- signal: positive, neutral, or negative\n- short reasoning\n- primary risk\n- action: monitor, investigate, or stop-loss warning\n\nStock data:\n${JSON.stringify(stocks, null, 2)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -172,7 +165,7 @@
       "typeVersion": 1.1,
       "position": [
         624,
-        592
+        640
       ],
       "id": "398c027e-e795-4f0c-8db4-c937f904350e",
       "name": "Convert to File1"
@@ -235,7 +228,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    model: \"gemma4\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    temperature: 0.2,\n    max_tokens: 4096\n  }\n}}",
+        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.1,\n    max_tokens: 2048,\n    stream: false\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -291,10 +284,36 @@
       "typeVersion": 1.1,
       "position": [
         832,
-        592
+        640
       ],
       "id": "b876b1ca-d789-4920-a916-440121172955",
       "name": "Write result"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1264,
+        544
+      ],
+      "id": "6bc6dae0-9ed3-421c-91cd-e9da4e3e2ef6",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map((item, index) => ({\n  json: {\n    itemIndex: index,\n    symbol: item.json.symbol,\n    currentPrice: item.json.currentPrice,\n    previousClose: item.json.previousClose,\n    lastThreeCloses: item.json.closes?.slice(-3) ?? [],\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -176
+      ],
+      "id": "49913eb9-9bda-4dee-8483-daaa9c3fb403",
+      "name": "Code in JavaScript"
     }
   ],
   "connections": {
@@ -493,9 +512,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "a855b4c6-51b4-40dc-8226-203cc7d62ebb",
+  "versionId": "6a313b0e-25b9-40f3-9718-d4bac75aafec",
   "activeVersionId": "a855b4c6-51b4-40dc-8226-203cc7d62ebb",
-  "versionCounter": 126,
+  "versionCounter": 194,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -520,7 +539,7 @@
     }
   ],
   "versionMetadata": {
-    "name": "Version a855b4c6",
-    "description": ""
+    "name": null,
+    "description": null
   }
 }
