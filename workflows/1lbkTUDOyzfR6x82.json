@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-11T21:59:25.677Z",
+  "updatedAt": "2026-07-12T08:42:29.519Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -202,7 +202,9 @@
       "parameters": {
         "chatId": "8895739149",
         "text": "={{ $json.telegramMessage }}",
-        "additionalFields": {}
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
@@ -228,7 +230,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.1,\n    max_tokens: 2048,\n    stream: false\n  }\n}}",
+        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.1,\n    max_tokens: 8192,\n    stream: false\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -486,9 +488,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "05ed34d0-d897-468b-b1e2-ded8fd0a2d49",
-  "activeVersionId": "05ed34d0-d897-468b-b1e2-ded8fd0a2d49",
-  "versionCounter": 215,
+  "versionId": "701c64e3-d428-4caf-9e6b-8c06c5610af5",
+  "activeVersionId": "701c64e3-d428-4caf-9e6b-8c06c5610af5",
+  "versionCounter": 219,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -513,7 +515,7 @@
     }
   ],
   "versionMetadata": {
-    "name": "Version 05ed34d0",
+    "name": "Version 701c64e3",
     "description": ""
   }
 }
