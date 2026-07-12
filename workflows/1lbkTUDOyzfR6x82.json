@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-12T08:42:29.519Z",
+  "updatedAt": "2026-07-12T09:55:32.117Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -114,7 +114,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    priceVsBuy: s.previousClose,\n    unrealizedReturnPercent: s.unrealizedReturnPercent,\n    stopLossPrice: s.stopLossPrice,\n    stopLossTriggered: s.stopLossTriggered,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\nDo not invent news, financial results, forecasts, or price targets.\n\nFor each stock return:\n- signal: positive, neutral, or negative\n- short reasoning\n- primary risk\n- action: monitor, investigate, or stop-loss warning\n\nStock data:\n${JSON.stringify(stocks, null, 2)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
+        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    priceVsBuy: s.previousClose,\n    unrealizedReturnPercent: s.unrealizedReturnPercent,\n    stopLossPrice: s.stopLossPrice,\n    stopLossTriggered: s.stopLossTriggered,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\n\nDo not:\n\n* invent news, financial results, forecasts, price targets, or missing facts\n* recalculate supplied values\n* mix data between stocks\n* use tables\n* use Markdown tables or code blocks\n\nThe fields priceVsBuy, unrealizedReturnPercent, stopLossTriggered, macdState, macdCrossover, and highVolumeDown are authoritative.\n\nFor each stock, use exactly this mobile-friendly format:\n\nSYMBOL\nSignal: Positive, Neutral, or Negative.\nReason: Two short sentences.\nRisk: One short sentence.\nAction: Monitor, investigate, or stop-loss warning.\n\nLeave one blank line between stocks.\n\nRules:\n\n* Mention every stock exactly once.\n* Keep each stock analysis under 60 words.\n* Keep the full response under 3500 characters.\n* Never state that the price is below the buy price when priceVsBuy is \"above\".\n* Never state that stop loss has triggered when stopLossTriggered is false.\n* If indicators conflict or are inconclusive, use Neutral.\n* Return plain text only.\n* Do not add an introduction, conclusion, summary table, or disclaimer.\n\nStock data:\n${JSON.stringify(stocks)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -230,7 +230,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.1,\n    max_tokens: 8192,\n    stream: false\n  }\n}}",
+        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.1,\n    max_tokens: 2000,\n    stream: false\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -488,9 +488,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "701c64e3-d428-4caf-9e6b-8c06c5610af5",
-  "activeVersionId": "701c64e3-d428-4caf-9e6b-8c06c5610af5",
-  "versionCounter": 219,
+  "versionId": "126285e4-8d8b-4bb6-b6c4-5ee0d6cfd1c4",
+  "activeVersionId": "126285e4-8d8b-4bb6-b6c4-5ee0d6cfd1c4",
+  "versionCounter": 284,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -515,7 +515,7 @@
     }
   ],
   "versionMetadata": {
-    "name": "Version 701c64e3",
+    "name": "Version 126285e4",
     "description": ""
   }
 }
