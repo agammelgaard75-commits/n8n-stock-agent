@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-12T10:06:19.657Z",
+  "updatedAt": "2026-07-12T10:32:51.780Z",
   "createdAt": "2026-07-11T09:32:31.805Z",
   "id": "1lbkTUDOyzfR6x82",
   "name": "stocks",
@@ -114,7 +114,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const stocks = $input.all().map(item => {\n  const s = item.json;\n\n  return {\n    symbol: s.symbol,\n    buyPrice: s.buyPrice,\n    currentPrice: s.currentPrice,\n    dailyChangePercent: s.dailyChangePercent,\n    dailyVolume: s.dailyVolume,\n    averageVolume3m: s.averageVolume3m,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    priceVsBuy: s.previousClose,\n    unrealizedReturnPercent: s.unrealizedReturnPercent,\n    stopLossPrice: s.stopLossPrice,\n    stopLossTriggered: s.stopLossTriggered,\n    volumeDeviationPercent: s.volumeDeviationPercent,\n    highVolumeDown: s.highVolumeDown,\n    stopLossTriggered: s.stopLossTriggered,\n    macd: s.macd,\n    macdSignal: s.macdSignal,\n    macdHistogram: s.macdHistogram,\n    macdState: s.macdState,\n    macdCrossover: s.macdCrossover,\n    macdMomentumIncreasing: s.macdMomentumIncreasing,\n  };\n});\n\nconst prompt = `\nYou are a concise stock analysis agent.\n\nAnalyse only the supplied technical data.\n\nDo not:\n\n* invent news, financial results, forecasts, price targets, or missing facts\n* recalculate supplied values\n* mix data between stocks\n* use tables\n* use Markdown tables or code blocks\n\nThe fields priceVsBuy, unrealizedReturnPercent, stopLossTriggered, macdState, macdCrossover, and highVolumeDown are authoritative.\n\nFor each stock, use exactly this mobile-friendly format:\n\nSYMBOL\nSignal: Positive, Neutral, or Negative.\nReason: Two short sentences.\nRisk: One short sentence.\nAction: Monitor, investigate, or stop-loss warning.\n\nLeave one blank line between stocks.\n\nRules:\n\n* Mention every stock exactly once.\n* Keep each stock analysis under 60 words.\n* Keep the full response under 3500 characters.\n* Never state that the price is below the buy price when priceVsBuy is \"above\".\n* Never state that stop loss has triggered when stopLossTriggered is false.\n* If indicators conflict or are inconclusive, use Neutral.\n* Return plain text only.\n* Do not add an introduction, conclusion, summary table, or disclaimer.\n\nStock data:\n${JSON.stringify(stocks)}\n`;\n\nreturn [{\n  json: {\n    prompt,\n    stocks,\n  },\n}];"
+        "mode": "runOnceForEachItem",
+        "jsCode": "const s = $json;\n\nconst stockData = {\n  symbol: s.symbol,\n  currentPrice: s.currentPrice,\n  buyPrice: s.buyPrice,\n\n  priceVsBuy: s.priceVsBuy ?? null,\n  unrealizedReturnPercent: s.unrealizedReturnPercent ?? null,\n\n  dailyChangePercent: s.dailyChangePercent,\n  volumeDeviationPercent: s.volumeDeviationPercent,\n  highVolumeDown: s.highVolumeDown,\n\n  macdState: s.macdState,\n  macdCrossover: s.macdCrossover,\n  momentumIncreasing: s.macdMomentumIncreasing,\n\n  stopLossTriggered: s.stopLossTriggered,\n};\n\nconst prompt = `\nAnalyse exactly one stock.\n\nUse only the supplied data.\nDo not invent facts, news, forecasts, or price targets.\nDo not recalculate supplied values.\n\nThe fields priceVsBuy, unrealizedReturnPercent,\nstopLossTriggered, highVolumeDown, macdState,\nmacdCrossover and momentumIncreasing are authoritative.\n\nReturn plain text using exactly this format:\n\n${s.symbol}\nSignal: Positive, Neutral, or Negative\nPosition: One short sentence\nMomentum: One short sentence\nRisk: One short sentence\nAction: Monitor, investigate, or stop-loss warning\n\nMaximum 50 words.\n\nStock data:\n${JSON.stringify(stockData)}\n`;\n\nreturn {\n  json: {\n    symbol: s.symbol,\n    prompt,\n    stockData,\n  },\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -128,7 +129,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const analysis = $json.choices?.[0]?.message?.content;\n\nif (!analysis) {\n  throw new Error('No LLM response found');\n}\n\nconst prepared = $('Prepare LLM Input').first().json;\n\nreturn {\n  json: {\n    generatedAt: new Date().toISOString(),\n    stocks: prepared.stocks,\n    analysis,\n  },\n};"
+        "jsCode": "const choice = $json.choices?.[0];\nconst analysis = choice?.message?.content;\n\nif (!analysis) {\n  throw new Error('No LLM response found');\n}\n\nconst source = $('Prepare LLM Input').item.json;\n\nreturn {\n  json: {\n    symbol: source.symbol,\n    stockData: source.stockData,\n    analysis: analysis.trim(),\n    finishReason: choice.finish_reason ?? 'unknown',\n    completionTokens: $json.usage?.completion_tokens ?? null,\n  },\n};"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -209,7 +210,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1104,
+        1168,
         464
       ],
       "id": "661a1f6d-2f26-4ee4-875a-d9ec956c93d1",
@@ -230,7 +231,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{\n  {\n    model: \"qwen3.5:9b\",\n    messages: [\n      {\n        role: \"user\",\n        content: $json.prompt\n      }\n    ],\n    think: false,\n    temperature: 0.3,\n    max_tokens: 2000,\n    stream: false\n  }\n}}",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"qwen3.5:9b\",\n  messages: [\n    {\n      role: \"user\",\n      content: $json.prompt\n    }\n  ],\n  temperature: 0,\n  max_tokens: 200,\n  stream: false,\n  think: false\n}) }}\n\n",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -247,19 +248,6 @@
           "name": "LiteLLM Local"
         }
       }
-    },
-    {
-      "parameters": {
-        "jsCode": "const date = new Intl.DateTimeFormat('en-DK', {\n  timeZone: 'Europe/Copenhagen',\n  dateStyle: 'long',\n}).format(new Date());\n\nreturn {\n  json: {\n    ...$json,\n    telegramMessage:\n`Portfolio report – ${date}\n\n${$json.analysis}`\n  }\n};"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        880,
-        464
-      ],
-      "id": "72c64526-8811-4984-8331-e71628a2fae3",
-      "name": "Format Telegram Message"
     },
     {
       "parameters": {
@@ -290,6 +278,33 @@
       ],
       "id": "b876b1ca-d789-4920-a916-440121172955",
       "name": "Write result"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst sections = items.map(item => {\n  const symbol = String(item.json.symbol ?? 'UNKNOWN');\n  const lines = String(item.json.analysis ?? '')\n    .trim()\n    .split('\\n');\n\n  // Remove the symbol if the LLM already put it on the first line\n  if (\n    lines.length > 0 &&\n    lines[0].trim().toUpperCase() === symbol.toUpperCase()\n  ) {\n    lines.shift();\n  }\n\n  return [\n    symbol,\n    lines.join('\\n').trim(),\n  ].join('\\n');\n});\n\nconst date = new Intl.DateTimeFormat('en-DK', {\n  timeZone: 'Europe/Copenhagen',\n  dateStyle: 'long',\n}).format(new Date());\n\nconst telegramMessage = [\n  `Portfolio report - ${date}`,\n  '',\n  sections.join('\\n\\n'),\n].join('\\n');\n\nreturn [\n  {\n    json: {\n      telegramMessage,\n      stockCount: items.length,\n      characters: telegramMessage.length,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        464
+      ],
+      "id": "fed918dd-63a8-4143-80ab-0027746a01bf",
+      "name": "Combine Telegram Report"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const MAX_BYTES = 4000;\nconst original = String($json.telegramMessage ?? '');\n\nfunction byteLength(value) {\n  return new TextEncoder().encode(value).length;\n}\n\nif (byteLength(original) <= MAX_BYTES) {\n  return {\n    json: {\n      ...$json,\n      telegramMessage: original,\n      wasTruncated: false,\n      originalBytes: byteLength(original),\n      finalBytes: byteLength(original),\n    },\n  };\n}\n\n// Reserve room for \"...\" and a possible closing HTML tag.\nconst RESERVED_BYTES = 20;\n\nlet truncated = '';\n\nfor (const character of original) {\n  const candidate = truncated + character;\n\n  if (\n    byteLength(candidate) + RESERVED_BYTES >\n    MAX_BYTES\n  ) {\n    break;\n  }\n\n  truncated = candidate;\n}\n\n// Prefer ending at a complete line.\nconst lastNewline = truncated.lastIndexOf('\\n');\n\nif (lastNewline > truncated.length * 0.7) {\n  truncated = truncated.slice(0, lastNewline);\n}\n\n// Remove an incomplete HTML tag.\nif (\n  truncated.lastIndexOf('<') >\n  truncated.lastIndexOf('>')\n) {\n  truncated = truncated.slice(\n    0,\n    truncated.lastIndexOf('<')\n  );\n}\n\n// Remove an incomplete HTML entity such as \"&amp\".\nif (\n  truncated.lastIndexOf('&') >\n  truncated.lastIndexOf(';')\n) {\n  truncated = truncated.slice(\n    0,\n    truncated.lastIndexOf('&')\n  );\n}\n\n// Close an open bold tag if truncation occurred inside one.\nconst openBoldTags =\n  (truncated.match(/<b>/g) ?? []).length;\n\nconst closedBoldTags =\n  (truncated.match(/<\\/b>/g) ?? []).length;\n\nif (openBoldTags > closedBoldTags) {\n  truncated += '</b>';\n}\n\ntruncated = truncated.trimEnd() + '...';\n\nreturn {\n  json: {\n    ...$json,\n    telegramMessage: truncated,\n    wasTruncated: true,\n    originalBytes: byteLength(original),\n    finalBytes: byteLength(truncated),\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        464
+      ],
+      "id": "72c64526-8811-4984-8331-e71628a2fae3",
+      "name": "Truncate Telegram Message"
     }
   ],
   "connections": {
@@ -395,7 +410,7 @@
             "index": 0
           },
           {
-            "node": "Format Telegram Message",
+            "node": "Combine Telegram Report",
             "type": "main",
             "index": 0
           }
@@ -451,7 +466,23 @@
         ]
       ]
     },
-    "Format Telegram Message": {
+    "Write log file": {
+      "main": [
+        []
+      ]
+    },
+    "Combine Telegram Report": {
+      "main": [
+        [
+          {
+            "node": "Truncate Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Truncate Telegram Message": {
       "main": [
         [
           {
@@ -460,11 +491,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Write log file": {
-      "main": [
-        []
       ]
     }
   },
@@ -488,9 +514,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "72b9aa10-4f25-4a3b-b9bc-50b7dcacc682",
-  "activeVersionId": "72b9aa10-4f25-4a3b-b9bc-50b7dcacc682",
-  "versionCounter": 290,
+  "versionId": "d1160a7d-ca06-4d96-a83c-988e9379ce3e",
+  "activeVersionId": "d1160a7d-ca06-4d96-a83c-988e9379ce3e",
+  "versionCounter": 328,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -515,7 +541,7 @@
     }
   ],
   "versionMetadata": {
-    "name": "Version 72b9aa10",
+    "name": "Version d1160a7d",
     "description": ""
   }
 }
